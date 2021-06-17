@@ -10,7 +10,7 @@ import h5py
 if __name__ == "__main__":    
 
     # read object
-    n = 640//2  # object size n x,y
+    n = 640  # object size n x,y
     ntheta = 168  # number of angles
     ptheta = 1  # partial size for ntheta
     voxelsize = 7.5e-5  # cm
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     ndet = 128  # detector size
     nprb = 128  # probe size
     nmodes = 7  # number of probe modes
-    ngpus = 4  # number of GPUs
+    ngpus = 1  # number of GPUs
 
     data_prefix = sys.argv[1]
     nscan = int(sys.argv[2])
@@ -26,14 +26,14 @@ if __name__ == "__main__":
 
     # reconstruction paramters
     recover_prb = True  # recover probe or not
-    piter = 32  # ptycho iterations
-    titer = 32 # tomo iterations
-    diter = 32  # deform iterations
-    niter = 129  # admm iterations
+    piter = 16  # ptycho iterations
+    titer = 16 # tomo iterations
+    diter = 16  # deform iterations
+    niter = 310  # admm iterations
 
     dbg_step = 4
     step_flow = 2    
-    start_win = 640//2
+    start_win = 640
 
     h5file = h5py.File(f'{data_prefix}/catalyst/extracted_scan192.h5', 'r')
     lamino_angle = h5file.attrs.get('lamino_angle')*np.pi/180        
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     for k in range(ntheta):
         print('read angle', k)
-        #data0 = np.load(data_prefix+'datanpy/datasorted_'+str(k)+'.npy')
+        data0 = np.load(data_prefix+'datanpy/datasorted_'+str(k)+'.npy')
         scan0 = np.load(data_prefix+'datanpy/scansorted_'+str(k)+'.npy')
         shifts0 = np.load(data_prefix+'/datanpy/shifts.npy')[k]
         shifts1 = np.load(data_prefix+'/datanpy/shiftscrop.npy')[k]
@@ -60,10 +60,10 @@ if __name__ == "__main__":
         ids = np.where((scan0[0,0]<n-nprb)*(scan0[1,0]<n-nprb)*(scan0[0,0]>=0)*(scan0[1,0]>=0))[0]    
         print(f'{len(ids)}')
         scan[:,k,:min(len(ids),nscan)] = scan0[:, 0, ids]
-        #data[k,:min(len(ids),nscan)] = data0[ids]    
+        data[k,:min(len(ids),nscan)] = data0[ids]    
         theta[k] = np.load(data_prefix+'datanpy/thetasorted_'+str(k)+'.npy')
 
-    scan /= 2
+    #scan /= 2
     # normaliza data to the detector size and fftshift it
     data = np.fft.fftshift(data, axes=(2, 3))/ndet/ndet
     # Initial guess
@@ -78,13 +78,13 @@ if __name__ == "__main__":
     u = np.zeros([n, n, n], dtype='complex64')
     flow = np.zeros([ntheta, n, n, 2], dtype='float32')
 
-    for k in range(ntheta):
-        psiangle = dxchange.read_tiff(data_prefix+'rec_crop/psiangle'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')[:,::2,::2]
-        psiamp = dxchange.read_tiff(data_prefix+'rec_crop/psiamp'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')[:,::2,::2]
-        psi1[k] = psiamp*np.exp(1j*psiangle) 
-        psi3[k] = psiamp*np.exp(1j*psiangle) 
-        h1[k] = psiamp*np.exp(1j*psiangle) 
-        h3[k] = psiamp*np.exp(1j*psiangle) 
+    # for k in range(ntheta):
+    #     psiangle = dxchange.read_tiff(data_prefix+'rec_crop/psiangle'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')[:,::2,::2]
+    #     psiamp = dxchange.read_tiff(data_prefix+'rec_crop/psiamp'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')[:,::2,::2]
+    #     psi1[k] = psiamp*np.exp(1j*psiangle) 
+    #     psi3[k] = psiamp*np.exp(1j*psiangle) 
+    #     h1[k] = psiamp*np.exp(1j*psiangle) 
+    #     h3[k] = psiamp*np.exp(1j*psiangle) 
 
     data_prefix += 'rec/'+str(nscan)+'align'+str(align)+'/'
     with ptychotomo.SolverAdmm(nscan, theta, lamino_angle, ndet, voxelsize, energy,

@@ -98,8 +98,8 @@ class SolverAdmm(object):
             h10,  h30 = h1,  h3
 
             # solve ptycho
-            #psi1, prb = self.pslv.grad_ptycho_batch(
-            #    data, psi1, prb, scan, h1+lamd1/rho1, rho1, piter, recover_prb)
+            psi1, prb = self.pslv.grad_ptycho_batch(
+                data, psi1, prb, scan, h1+lamd1/rho1, rho1, piter, recover_prb)
             
             # solve deform
             mmin, mmax = find_min_max(np.angle(psi1-lamd1/rho1))
@@ -108,21 +108,18 @@ class SolverAdmm(object):
             psi3 = self.dslv.grad_deform_gpu_batch(
                 psi1-lamd1/rho1, psi3, flow, diter, h3+lamd3/rho3, rho3/rho1)
             
-            # print(np.linalg.norm(psi3))
-            # print(np.linalg.norm(psi1))
-            # exit()
             # solve tomo
             xi0, K, pshift = self.pslv.takexi(psi3, lamd3, rho3)
             u = self.tslv.grad_lam(xi0, K, u, self.theta, titer)
             
             # update h1, h3
-            #h1 = self.dslv.apply_flow_gpu_batch(
-                #psi3.real, flow)+1j*self.dslv.apply_flow_gpu_batch(psi3.imag, flow)
+            h1 = self.dslv.apply_flow_gpu_batch(
+                psi3.real, flow)+1j*self.dslv.apply_flow_gpu_batch(psi3.imag, flow)
             h3 = self.pslv.exptomo(
                 self.tslv.fwd_lam(u, self.theta))*np.exp(1j*pshift)
             
             # lamd updates
-            #lamd1 = lamd1 + rho1 * (h1-psi1)
+            lamd1 = lamd1 + rho1 * (h1-psi1)
             lamd3 = lamd3 + rho3 * (h3-psi3)
             
             # update rho for a faster convergence
