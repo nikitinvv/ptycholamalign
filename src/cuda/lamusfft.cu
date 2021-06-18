@@ -13,15 +13,15 @@ lamusfft::lamusfft(size_t n0, size_t n1, size_t n2, size_t det, size_t ntheta, f
   m1 = ceil(2 * n1 * 1 / PI * sqrt(-mu1 * log(eps) + (mu1 * n1) * (mu1 * n1) / 4));
   m2 = ceil(2 * n2 * 1 / PI * sqrt(-mu2 * log(eps) + (mu2 * n2) * (mu2 * n2) / 4));
   fprintf(stderr,"interp radius in USFFT: %d\n",m0);
-  cudaMalloc((void **)&f, n0 * n1 * n2 * sizeof(float2));
-  cudaMalloc((void **)&g, det * det * ntheta * sizeof(float2));
-  cudaMalloc((void **)&fdee,
+  //cudaMallocManaged((void **)&f, n0 * n1 * n2 * sizeof(float2));
+  //cudaMallocManaged((void **)&g, det * det * ntheta * sizeof(float2));
+  cudaMallocManaged((void **)&fdee,
              (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2));
 
-  cudaMalloc((void **)&x, det * det * ntheta * sizeof(float));
-  cudaMalloc((void **)&y, det * det * ntheta * sizeof(float));
-  cudaMalloc((void **)&z, det * det * ntheta * sizeof(float));
-  cudaMalloc((void **)&theta, ntheta * sizeof(float));
+  cudaMallocManaged((void **)&x, det * det * ntheta * sizeof(float));
+  cudaMallocManaged((void **)&y, det * det * ntheta * sizeof(float));
+  cudaMallocManaged((void **)&z, det * det * ntheta * sizeof(float));
+  cudaMallocManaged((void **)&theta, ntheta * sizeof(float));
   
   int ffts[3];
   int idist;
@@ -79,7 +79,9 @@ void lamusfft::free() {
 }
 
 void lamusfft::fwd(size_t g_, size_t f_, size_t theta_) {
-  cudaMemcpy(f, (float2 *)f_, n0 * n1 * n2 * sizeof(float2), cudaMemcpyDefault);
+  //cudaMemcpy(f, (float2 *)f_, n0 * n1 * n2 * sizeof(float2), cudaMemcpyDefault);
+  f = (float2 *)f_;
+  g = (float2 *)g_;
   cudaMemcpy(theta, (float *)theta_, ntheta * sizeof(float), cudaMemcpyDefault);
   cudaMemset(fdee, 0, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2));
 
@@ -101,11 +103,14 @@ void lamusfft::fwd(size_t g_, size_t f_, size_t theta_) {
   cufftExecC2C(plan2d, (cufftComplex *)g, (cufftComplex *)g, CUFFT_INVERSE);
   fftshiftc2d <<<GS3d0, BS3d>>> (g, det, ntheta);
 
-  cudaMemcpy((float2 *)g_, g, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
+  //cudaMemcpy((float2 *)g_, g, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
+  
 }
 
 void lamusfft::adj(size_t f_, size_t g_, size_t theta_) {
-  cudaMemcpy(g, (float2 *)g_, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
+  //cudaMemcpy(g, (float2 *)g_, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
+  f = (float2 *)f_;
+  g = (float2 *)g_;
   cudaMemset(fdee, 0, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2));
 
   takexyz <<<GS3d0, BS3d>>> (x, y, z, theta, phi, det, ntheta);
@@ -125,6 +130,6 @@ void lamusfft::adj(size_t f_, size_t g_, size_t theta_) {
 
   divker <<<GS3d1, BS3d>>> (fdee, f, mu0, mu1, mu2, n0, n1, n2, m0,m1,m2, TOMO_ADJ);
   
-  cudaMemcpy((float2 *)f_, f, n0 * n1 * n2 * sizeof(float2),
-              cudaMemcpyDefault);
+  //cudaMemcpy((float2 *)f_, f, n0 * n1 * n2 * sizeof(float2),
+    //          cudaMemcpyDefault);
 }
