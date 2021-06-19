@@ -26,10 +26,10 @@ if __name__ == "__main__":
 
     # reconstruction paramters
     recover_prb = True  # recover probe or not
-    piter = 16  # ptycho iterations
-    titer = 16 # tomo iterations
-    diter = 16  # deform iterations
-    niter = 310  # admm iterations
+    piter = 2  # ptycho iterations
+    titer = 2 # tomo iterations
+    diter = 2  # deform iterations
+    niter = 1  # admm iterations
 
     dbg_step = 4
     step_flow = 2    
