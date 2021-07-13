@@ -25,7 +25,7 @@ if __name__ == "__main__":
     
     psi = np.zeros([ntheta, n, n], dtype='complex64', order='C')
     for k in range(ntheta):        
-        psiangle = dxchange.read_tiff(data_prefix+'rec_crop/psiangle'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')        
+        psiangle = dxchange.read_tiff(data_prefix+'rec_crop3/psiangle'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')        
         psi[k] = psiangle[0,::step,::step]
         theta[k] = np.load(data_prefix+'datanpy/thetasorted_'+str(k)+'.npy')    
     #psi = dxchange.read_tiff(data_prefix+'/matlab-recon.tif')[:,::2,::2].astype('complex64')

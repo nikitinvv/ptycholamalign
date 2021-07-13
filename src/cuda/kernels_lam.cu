@@ -157,8 +157,8 @@ void __global__ gather(float2 *g, float2 *f, float *x, float *y, float *z, int m
         {
           float *fx = &(f[f_ind].x);
           float *fy = &(f[f_ind].y);
-          atomicAdd(fx, w * g0.x);
-          atomicAdd(fy, w * g0.y);
+          atomicAdd_system(fx, w * g0.x);
+          atomicAdd_system(fy, w * g0.y);
         }
       }
     }

@@ -32,7 +32,7 @@ swig_link_libraries(ptychofft cudart cufft)
 swig_link_libraries(lamusfft cudart cufft)
 swig_link_libraries(deform cudart cufft nppig nppial nppc npps nppidei OpenMP::OpenMP_CXX)
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fopenmp")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60 --compiler-options -fopenmp")
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/radonusfft.py" DESTINATION ptychotomo)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ptychofft.py" DESTINATION ptychotomo)

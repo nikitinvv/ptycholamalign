@@ -4,8 +4,8 @@
 #include "kernels_lam.cu"
 #include "shift.cu"
 
-lamusfft::lamusfft(size_t n0, size_t n1, size_t n2, size_t det, size_t ntheta, float phi,float eps)
-    : n0(n0), n1(n1), n2(n2), det(det), ntheta(ntheta), phi(phi) {
+lamusfft::lamusfft(size_t n0, size_t n1, size_t n2, size_t det, size_t ntheta, float phi,float eps, size_t ngpus)
+    : n0(n0), n1(n1), n2(n2), det(det), ntheta(ntheta), phi(phi), ngpus(ngpus) {
   mu0 = -log(eps) / (2 * n0 * n0);
   mu1 = -log(eps) / (2 * n1 * n1);
   mu2 = -log(eps) / (2 * n2 * n2);
@@ -13,15 +13,15 @@ lamusfft::lamusfft(size_t n0, size_t n1, size_t n2, size_t det, size_t ntheta, f
   m1 = ceil(2 * n1 * 1 / PI * sqrt(-mu1 * log(eps) + (mu1 * n1) * (mu1 * n1) / 4));
   m2 = ceil(2 * n2 * 1 / PI * sqrt(-mu2 * log(eps) + (mu2 * n2) * (mu2 * n2) / 4));
   fprintf(stderr,"interp radius in USFFT: %d\n",m0);
-  cudaMallocManaged((void **)&f, n0 * n1 * n2 * sizeof(float2));
-  cudaMallocManaged((void **)&g, det * det * ntheta * sizeof(float2));
-  cudaMallocManaged((void **)&fdee,
+  cudaMalloc((void **)&f, n0 * n1 * n2 * sizeof(float2));
+  cudaMalloc((void **)&g, det * det * ntheta * sizeof(float2));
+  cudaMalloc((void **)&fdee,
              (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2));
 
-  cudaMallocManaged((void **)&x, det * det * ntheta * sizeof(float));
-  cudaMallocManaged((void **)&y, det * det * ntheta * sizeof(float));
-  cudaMallocManaged((void **)&z, det * det * ntheta * sizeof(float));
-  cudaMallocManaged((void **)&theta, ntheta * sizeof(float));
+  cudaMalloc((void **)&x, det * det * ntheta * sizeof(float));
+  cudaMalloc((void **)&y, det * det * ntheta * sizeof(float));
+  cudaMalloc((void **)&z, det * det * ntheta * sizeof(float));
+  cudaMalloc((void **)&theta, ntheta * sizeof(float));
   
   int ffts[3];
   int idist;
@@ -34,8 +34,9 @@ lamusfft::lamusfft(size_t n0, size_t n1, size_t n2, size_t det, size_t ntheta, f
   inembed[0] = 2 * n2 + 2 * m2; // Note the order is reverse!
   inembed[1] = 2 * n1 + 2 * m1;
   inembed[2] = 2 * n0 + 2 * m0;
-  cufftPlanMany(&plan3d, 3, ffts, inembed, 1, idist, inembed, 1, idist,
+  cufftResult a = cufftPlanMany(&plan3d, 3, ffts, inembed, 1, idist, inembed, 1, idist,
                 CUFFT_C2C, 1);
+  fprintf(stderr,"%d",a);
   
   // fft 2d
   ffts[0] = det;
@@ -43,13 +44,20 @@ lamusfft::lamusfft(size_t n0, size_t n1, size_t n2, size_t det, size_t ntheta, f
   idist = det*det;
   inembed[0] = det;
   inembed[1] = det;
-  cufftPlanMany(&plan2d, 2, ffts, inembed, 1, idist, inembed, 1, idist,
+  a = cufftPlanMany(&plan2d, 2, ffts, inembed, 1, idist, inembed, 1, idist,
                 CUFFT_C2C, ntheta);
+  fprintf(stderr,"%d",a);
+
+  streams = new cudaStream_t[ngpus];
+  for (int i=0;i<ngpus;i++)
+    cudaStreamCreate(&streams[i]) ;
   
   BS3d = dim3(16, 16, 4);
 
   GS3d0 = dim3(ceil(det / (float)BS3d.x), ceil(det / (float)BS3d.y),
                 ceil(ntheta / (float)BS3d.z));
+  GS3d00 = dim3(ceil(det / (float)BS3d.x), ceil(det / (float)BS3d.y),
+                ceil(ntheta/ngpus / (float)BS3d.z));                
   GS3d1 = dim3(ceil(n0 / (float)BS3d.x), ceil(n1 / (float)BS3d.y),
                 ceil(n2 / (float)BS3d.z));
   GS3d2 = dim3(ceil(2*n0 / (float)BS3d.x), 
@@ -79,9 +87,9 @@ void lamusfft::free() {
 }
 
 void lamusfft::fwd(size_t g_, size_t f_, size_t theta_) {
-  //cudaMemcpy(f, (float2 *)f_, n0 * n1 * n2 * sizeof(float2), cudaMemcpyDefault);
-  f = (float2 *)f_;
-  g = (float2 *)g_;
+  cudaMemcpy(f, (float2 *)f_, n0 * n1 * n2 * sizeof(float2), cudaMemcpyDefault);
+  //f = (float2 *)f_;
+  //g = (float2 *)g_;
   cudaMemcpy(theta, (float *)theta_, ntheta * sizeof(float), cudaMemcpyDefault);
   cudaMemset(fdee, 0, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2));
 
@@ -97,19 +105,34 @@ void lamusfft::fwd(size_t g_, size_t f_, size_t theta_) {
   fftshiftc3d <<<GS3d3, BS3d>>> (fdee, 2 * n0 + 2 * m0, 2 * n1 +2 * m1, 2 * n2 +2 * m2);
   
   wrap <<<GS3d3, BS3d>>> (fdee, n0, n1, n2, m0, m1, m2, TOMO_FWD);
+  /*for (int i=0;i<ngpus;i++)
+  {
+    cudaSetDevice(i)  ;
+    
+    int st = i*ntheta/ngpus*det*det;
+    cudaMemPrefetchAsync(&g[st],ntheta/ngpus*det*det*sizeof(float2),i,streams[i]);
+    cudaMemPrefetchAsync(&x[st],ntheta/ngpus*det*det*sizeof(float),i,streams[i]);
+    cudaMemPrefetchAsync(&y[st],ntheta/ngpus*det*det*sizeof(float),i,streams[i]);
+    cudaMemPrefetchAsync(&z[st],ntheta/ngpus*det*det*sizeof(float),i,streams[i]);
+    cudaMemPrefetchAsync(fdee, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2),i,streams[i]);
+    gather <<<GS3d00, BS3d, 0, streams[i]>>> (&g[st], fdee, &x[st], &y[st], &z[st], m0, m1, m2, mu0, mu1, mu2, n0, n1, n2, det, ntheta/ngpus, TOMO_FWD);
+  }
+  cudaDeviceSynchronize();  
+  cudaMemPrefetchAsync(g,ntheta*det*det*sizeof(float),0,streams[0]);
+  cudaSetDevice(0) ;    */
   gather <<<GS3d0, BS3d>>> (g, fdee, x, y, z, m0, m1, m2, mu0, mu1, mu2, n0, n1, n2, det, ntheta, TOMO_FWD);
-  
   fftshiftc2d <<<GS3d0, BS3d>>> (g, det, ntheta);
   cufftExecC2C(plan2d, (cufftComplex *)g, (cufftComplex *)g, CUFFT_INVERSE);
   fftshiftc2d <<<GS3d0, BS3d>>> (g, det, ntheta);
 
-  //cudaMemcpy((float2 *)g_, g, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
+  
+  cudaMemcpy((float2 *)g_, g, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
 }
 
 void lamusfft::adj(size_t f_, size_t g_, size_t theta_) {
-  f = (float2 *)f_;
-  g = (float2 *)g_;
-  //cudaMemcpy(g, (float2 *)g_, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
+  //f = (float2 *)f_;
+  //g = (float2 *)g_;
+  cudaMemcpy(g, (float2 *)g_, det * det * ntheta * sizeof(float2), cudaMemcpyDefault);
   cudaMemset(fdee, 0, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2));
 
   takexyz <<<GS3d0, BS3d>>> (x, y, z, theta, phi, det, ntheta);
@@ -118,6 +141,23 @@ void lamusfft::adj(size_t f_, size_t g_, size_t theta_) {
   cufftExecC2C(plan2d, (cufftComplex *)g, (cufftComplex *)g, CUFFT_FORWARD);
   fftshiftc2d <<<GS3d0, BS3d>>> (g, det, ntheta);
 
+/*
+  for (int i=0;i<ngpus;i++)
+  {
+    cudaSetDevice(i)  ;
+    printf("Device %d\n",i);
+    int st = i*ntheta/ngpus*det*det;      
+    cudaMemPrefetchAsync(&g[st],ntheta/ngpus*det*det*sizeof(float2),i,streams[i]);
+    cudaMemPrefetchAsync(&x[st],ntheta/ngpus*det*det*sizeof(float),i,streams[i]);
+    cudaMemPrefetchAsync(&y[st],ntheta/ngpus*det*det*sizeof(float),i,streams[i]);
+    cudaMemPrefetchAsync(&z[st],ntheta/ngpus*det*det*sizeof(float),i,streams[i]);
+    cudaMemPrefetchAsync(fdee, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2),i,streams[i]);
+    gather <<<GS3d00, BS3d,0,streams[i]>>> (&g[st], fdee, &x[st], &y[st], &z[st], m0, m1, m2, mu0, mu1, mu2, n0, n1, n2, det, ntheta/ngpus, TOMO_ADJ);
+  }
+  cudaDeviceSynchronize();
+  cudaMemPrefetchAsync(fdee, (2 * n0 + 2 * m0) * (2 * n1 + 2 * m1) * (2 * n2 + 2 * m2) * sizeof(float2),0,streams[0]);
+  cudaSetDevice(0)  ;*/
+  
   gather <<<GS3d0, BS3d>>> (g, fdee, x, y, z, m0, m1, m2, mu0, mu1, mu2, n0, n1, n2, det, ntheta, TOMO_ADJ);
   wrap <<<GS3d3, BS3d>>> (fdee, n0, n1, n2, m0, m1, m2, TOMO_ADJ);
 
@@ -129,6 +169,6 @@ void lamusfft::adj(size_t f_, size_t g_, size_t theta_) {
 
   divker <<<GS3d1, BS3d>>> (fdee, f, mu0, mu1, mu2, n0, n1, n2, m0,m1,m2, TOMO_ADJ);
   
- // cudaMemcpy((float2 *)f_, f, n0 * n1 * n2 * sizeof(float2),
-   //           cudaMemcpyDefault);
+  cudaMemcpy((float2 *)f_, f, n0 * n1 * n2 * sizeof(float2),
+              cudaMemcpyDefault);
 }

@@ -11,7 +11,7 @@ import dxchange
 import sys
 import os
 import matplotlib.pyplot as plt
-
+import gc
 
 
 class SolverAdmm(object):
@@ -28,7 +28,8 @@ class SolverAdmm(object):
         self.ngpus = ngpus
         self.theta=theta
 
-        self.tslv = SolverLam(n,n,n,n,ntheta,lamino_angle,eps=1e-2)
+        eps=1e-1
+        self.tslv = SolverLam(n,n,n,n,ntheta,lamino_angle,eps,ngpus)
         self.pslv = SolverPtycho(
             ntheta, ptheta, nz, n, nscan, ndet, nprb, nmodes, voxelsize, energy, ngpus)
         self.dslv = SolverDeform(ntheta, nz, n, ptheta, ngpus)
@@ -87,53 +88,67 @@ class SolverAdmm(object):
              h1, h3, lamd1, lamd3,
              u, piter, titer, diter, niter, 
              recover_prb, align, start_win, 
-             step_flow=1, name='tmp/', dbg_step=8):
+             step_flow=1, name='tmp/', dbg_step=8, sptycho=True):
 
         # data /= (self.ndetx*self.ndety)  # FFT compensation  (should be done for real data)
         pars = [0.5, 1, start_win, 4, 5, 1.1, 4]
         rho1, rho3 = 0.5, 0.5
-        
+        t=np.zeros(4)
         for i in range(niter):
             # keep previous iteration for penalty updates
             h10,  h30 = h1,  h3
-
-            # solve ptycho
-            psi1, prb = self.pslv.grad_ptycho_batch(
-                data, psi1, prb, scan, h1+lamd1/rho1, rho1, piter, recover_prb)
             
+            # solve ptycho
+            tic()
+            if(sptycho==1):
+                psi1, prb = self.pslv.grad_ptycho_batch(
+                    data, psi1, prb, scan, h1+lamd1/rho1, rho1, piter, recover_prb)
+            t[0]+=toc()
+            gc.collect()
             # solve deform
+            tic()
             mmin, mmax = find_min_max(np.angle(psi1-lamd1/rho1))
             flow = self.dslv.registration_flow_batch(
                 np.angle(psi3), np.angle(psi1-lamd1/rho1), mmin, mmax, flow, pars)*align
             psi3 = self.dslv.grad_deform_gpu_batch(
-                psi1-lamd1/rho1, psi3, flow, diter, h3+lamd3/rho3, rho3/rho1)
-            
+                psi1-lamd1/rho1, psi3, flow, diter, h3+lamd3/rho3, rho3/rho1)            
+            t[1]+=toc()
+            gc.collect()
+
+            tic()
             # solve tomo
             xi0, K, pshift = self.pslv.takexi(psi3, lamd3, rho3)
             u = self.tslv.grad_lam(xi0, K, u, self.theta, titer)
+            t[2]+=toc() 
+            gc.collect()
             
             # update h1, h3
-            h1 = self.dslv.apply_flow_gpu_batch(
-                psi3.real, flow)+1j*self.dslv.apply_flow_gpu_batch(psi3.imag, flow)
+            tic()
+            if(sptycho==1):
+                h1 = self.dslv.apply_flow_gpu_batch(
+                    psi3.real, flow)+1j*self.dslv.apply_flow_gpu_batch(psi3.imag, flow)
             h3 = self.pslv.exptomo(
                 self.tslv.fwd_lam(u, self.theta))*np.exp(1j*pshift)
+            t[3]+=toc()             
             
             # lamd updates
-            lamd1 = lamd1 + rho1 * (h1-psi1)
+            if(sptycho==1):
+                lamd1 = lamd1 + rho1 * (h1-psi1)
             lamd3 = lamd3 + rho3 * (h3-psi3)
             
             # update rho for a faster convergence
             rho1, rho3 = self.update_penalty(
                 psi1, h1, h10, psi3, h3, h30, rho1, rho3)
-
+            gc.collect()
             # decrease the step for optical flow window
             pars[2] -= step_flow
             # Lagrangians difference between two iterations
             if (i % dbg_step == 0):
-                lagr = self.take_lagr(
-                    psi1, psi3, data, prb, scan, h1, h3, lamd1, lamd3, rho1, rho3)
-                print(f"{i}/{niter}) flow:{np.linalg.norm(flow)}, {pars[2]}, {rho1:.2e}, {rho3:.2e}",
-                      "Lagrangian terms: [", *(f"{x:.1e}" for x in lagr), "]")
+               # lagr = self.take_lagr(
+                #    psi1, psi3, data, prb, scan, h1, h3, lamd1, lamd3, rho1, rho3)
+                #print(f"{i}/{niter}) flow:{np.linalg.norm(flow)}, {pars[2]}, {rho1:.2e}, {rho3:.2e}",
+                      #"Lagrangian terms: [", *(f"{x:.1e}" for x in lagr), "]")
+                print(f"ptycho:{t[0]/60}, deform: {t[1]/60}, lam: {t[2]/60}, update: {t[3]/60}")
                 self.msave(psi1,psi3,u,flow,name,i)
                 
         return u, psi1, psi3, flow, prb

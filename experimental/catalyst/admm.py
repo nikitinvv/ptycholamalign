@@ -7,11 +7,11 @@ import sys
 import h5py
 import cupy
 
-cupy.cuda.set_allocator(cupy.cuda.MemoryPool(cupy.cuda.malloc_managed).malloc)
+#cupy.cuda.set_allocator(cupy.cuda.MemoryPool(cupy.cuda.malloc_managed).malloc)
 if __name__ == "__main__":    
 
     # read object
-    n = 640  # object size n x,y
+    n = 544  # object size n x,y
     ntheta = 168  # number of angles
     ptheta = 1  # partial size for ntheta
     voxelsize = 7.5e-5  # cm
@@ -19,28 +19,35 @@ if __name__ == "__main__":
     ndet = 128  # detector size
     nprb = 128  # probe size
     nmodes = 7  # number of probe modes
-    ngpus = 4  # number of GPUs
+    ngpus = 1  # number of GPUs
 
     data_prefix = sys.argv[1]
     nscan = int(sys.argv[2])
     align = int(sys.argv[3])    
+    sptycho = int(sys.argv[4])
+    cptycho = int(sys.argv[5])
 
     # reconstruction paramters
-    recover_prb = True  # recover probe or not
-    piter = 2  # ptycho iterations
-    titer = 2 # tomo iterations
-    diter = 2  # deform iterations
-    niter = 1  # admm iterations
+    recover_prb = bool(sys.argv[6])
+    piter = 32  # ptycho iterations
+    titer = 32 # tomo iterations
+    diter = 32  # deform iterations
+    niter = 256  # admm iterations
 
     dbg_step = 4
-    step_flow = 2    
-    start_win = 512+12
+    step_flow = 2
+    start_win = 544
 
     h5file = h5py.File(f'{data_prefix}/catalyst/extracted_scan192.h5', 'r')
+    tilt_angle = h5file.attrs.get('tilt_angle')
     lamino_angle = h5file.attrs.get('lamino_angle')*np.pi/180        
     # Load probe
     prb = np.zeros([ntheta, nmodes, nprb, nprb], dtype='complex64')
     prb[:] = np.load(f'{data_prefix}datanpy/probessorted_0.npy')[:nmodes]
+    for j in range(ntheta):
+        for k in range(7):
+            prb[j,k].real = ndimage.rotate(prb[j,k].real,-tilt_angle,reshape=False,order=1)
+            prb[j,k].imag = ndimage.rotate(prb[j,k].imag,-tilt_angle,reshape=False,order=1)
 
     theta = np.zeros(ntheta, dtype='float32')
     data = np.zeros([ntheta, nscan, ndet, ndet], dtype='float32')
@@ -51,11 +58,12 @@ if __name__ == "__main__":
         data0 = np.load(data_prefix+'datanpy/datasorted_'+str(k)+'.npy')
         scan0 = np.load(data_prefix+'datanpy/scansorted_'+str(k)+'.npy')
         shifts0 = np.load(data_prefix+'/datanpy/shifts.npy')[k]
-        shifts1 = np.load(data_prefix+'/datanpy/shiftscrop.npy')[k]
-        scan0[0] -= shifts0[0] + shifts1[0]
-        scan0[1] -= shifts0[1] + shifts1[0]
-        scan0[0] -= 64
-        scan0[1] -= 320
+        shifts1 = np.load(data_prefix+'/datanpy/shifts_sift.npy')[k]
+        shifts2 = np.load(data_prefix+'/datanpy/shifts_cm.npy')[k]
+        scan0[0] -= shifts0[0] + shifts1[0] + shifts2[0]
+        scan0[1] -= shifts0[1] + shifts1[1] + shifts2[1]
+        scan0[0] -= 64+64+32+16
+        scan0[1] -= 320+32+16
         # ignore position out of field of view            
         ids = np.where((scan0[0,0]<n-nprb)*(scan0[1,0]<n-nprb)*(scan0[0,0]>=0)*(scan0[1,0]>=0))[0]    
         ids = ids[sample(range(len(ids)), min(len(ids),nscan))]
@@ -78,22 +86,31 @@ if __name__ == "__main__":
     u = np.zeros([n, n, n], dtype='complex64')
     flow = np.zeros([ntheta, n, n, 2], dtype='float32')
 
-    # for k in range(ntheta):
-    #     psiangle = dxchange.read_tiff(data_prefix+'rec_crop/psiangle'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')[:,::2,::2]
-    #     psiamp = dxchange.read_tiff(data_prefix+'rec_crop/psiamp'+str(nmodes)+str(nscan)+'/r'+str(k)+'.tiff')[:,::2,::2]
-    #     psi1[k] = psiamp*np.exp(1j*psiangle) 
-    #     psi3[k] = psiamp*np.exp(1j*psiangle) 
-    #     h1[k] = psiamp*np.exp(1j*psiangle) 
-    #     h3[k] = psiamp*np.exp(1j*psiangle) 
 
-    data_prefix += 'rec/'+str(nscan)+'align'+str(align)+str(step_flow)+'/'
+    # init with correct values
+    for k in range(ntheta):
+        if(cptycho==1):
+            psiangle = dxchange.read_tiff(data_prefix+'rec_crop3/psiangle'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,16:-16,16:-16]
+            psiamp = dxchange.read_tiff(data_prefix+'rec_crop3/psiamp'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,16:-16,16:-16]
+            psi1[k] = psiamp*np.exp(1j*psiangle) 
+            psi3[k] = psiamp*np.exp(1j*psiangle) 
+            h1[k] = psiamp*np.exp(1j*psiangle) 
+            h3[k] = psiamp*np.exp(1j*psiangle) 
+        if(recover_prb==False):
+            for m in range(nmodes):
+                prbangle = dxchange.read_tiff(data_prefix+'rec_crop3/prbangle/r'+str(m)+'_'+str(k)+'.tiff')
+                prbamp = dxchange.read_tiff(data_prefix+'rec_crop3/prbamp/r'+str(m)+'_'+str(k)+'.tiff')
+                prb[k,m] = prbamp*np.exp(1j*prbangle) 
+                
+
+    data_prefix += 'rec_test/'+str(nscan)+'align'+str(align)+str(sptycho)+str(cptycho)+str(step_flow)+str(recover_prb)+'/'
     with ptychotomo.SolverAdmm(nscan, theta, lamino_angle, ndet, voxelsize, energy,
                                ntheta, n, n, nprb, ptheta, nmodes, ngpus) as aslv:
         u, psi1, psi3, flow, prb = aslv.admm_lam(
             data, psi1, psi3, flow, prb, scan,
             h1, h3, lamd1, lamd3,
             u, piter, titer, diter, niter, recover_prb, align, start_win=start_win,
-            step_flow=step_flow, name=data_prefix+'tmp/', dbg_step=dbg_step)
+            step_flow=step_flow, name=data_prefix+'tmp/', dbg_step=dbg_step, sptycho=sptycho)
 
     dxchange.write_tiff_stack(
         np.angle(psi1), data_prefix+'rec_admm/psiangle/p', overwrite=True)
