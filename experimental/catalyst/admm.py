@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import sys
 import h5py
 import cupy
-
+import scipy.ndimage as ndimage
 #cupy.cuda.set_allocator(cupy.cuda.MemoryPool(cupy.cuda.malloc_managed).malloc)
 if __name__ == "__main__":    
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     nscan = int(sys.argv[2])
     align = int(sys.argv[3])    
     sptycho = int(sys.argv[4])
-    cptycho = int(sys.argv[5])
+    initptycho = int(sys.argv[5])
 
     # reconstruction paramters
     recover_prb = bool(sys.argv[6])
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     # init with correct values
     for k in range(ntheta):
-        if(cptycho==1):
+        if(initptycho==1):
             psiangle = dxchange.read_tiff(data_prefix+'rec_crop3/psiangle'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,16:-16,16:-16]
             psiamp = dxchange.read_tiff(data_prefix+'rec_crop3/psiamp'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,16:-16,16:-16]
             psi1[k] = psiamp*np.exp(1j*psiangle) 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 prb[k,m] = prbamp*np.exp(1j*prbangle) 
                 
 
-    data_prefix += 'rec_test/'+str(nscan)+'align'+str(align)+str(sptycho)+str(cptycho)+str(step_flow)+str(recover_prb)+'/'
+    data_prefix += 'rec_test/'+str(nscan)+'align'+str(align)+str(sptycho)+str(initptycho)+str(step_flow)+str(recover_prb)+'/'
     with ptychotomo.SolverAdmm(nscan, theta, lamino_angle, ndet, voxelsize, energy,
                                ntheta, n, n, nprb, ptheta, nmodes, ngpus) as aslv:
         u, psi1, psi3, flow, prb = aslv.admm_lam(
