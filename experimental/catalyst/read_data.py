@@ -24,12 +24,12 @@ def read_data(id_data):
         #exit()
         positions = positions[:,::-1]
         positionsrot = positions.copy()
-        positionsrot[:,1] = positions[:,1]*np.cos(-tilt_angle*np.pi/180)+positions[:,0]*np.sin(-tilt_angle*np.pi/180)
-        positionsrot[:,0] = -positions[:,1]*np.sin(-tilt_angle*np.pi/180)+positions[:,0]*np.cos(-tilt_angle*np.pi/180)
-        for k in range(7):
-            probes[k].real = ndimage.rotate(probes[k].real,-tilt_angle,reshape=False,order=1)
-            probes[k].imag = ndimage.rotate(probes[k].imag,-tilt_angle,reshape=False,order=1)
-        data = ndimage.rotate(data, -tilt_angle, reshape=False, axes=(2,1), order=1).astype('float32')
+        # positionsrot[:,1] = positions[:,1]*np.cos(-tilt_angle*np.pi/180)+positions[:,0]*np.sin(-tilt_angle*np.pi/180)
+        # positionsrot[:,0] = -positions[:,1]*np.sin(-tilt_angle*np.pi/180)+positions[:,0]*np.cos(-tilt_angle*np.pi/180)
+        # for k in range(7):
+        #     probes[k].real = ndimage.rotate(probes[k].real,-tilt_angle,reshape=False,order=1)
+        #     probes[k].imag = ndimage.rotate(probes[k].imag,-tilt_angle,reshape=False,order=1)
+        # data = ndimage.rotate(data, -tilt_angle, reshape=False, axes=(2,1), order=1).astype('float32')
         data[data<0]=0
         positionsrot[:,0] -= np.amin(positionsrot[:,0])
         positionsrot[:,1] -= np.amin(positionsrot[:,1])    

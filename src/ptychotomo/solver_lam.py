@@ -31,10 +31,10 @@ class SolverLam(lamusfft):
         Accuracy for the USFFT computation. Default: 1e-3.
     """
 
-    def __init__(self, n0, n1, n2, det, ntheta, phi, eps=1e-3, ngpus=1):
+    def __init__(self, n0, n1, n2, det, ntheta, phi, gamma, eps=1e-3, ngpus=1):
         """Please see help(SolverLam) for more info."""
         # create class for the tomo transform associated with first gpu
-        super().__init__(n2, n1, n0, det, ntheta, phi, eps, ngpus)  # reorder sizes
+        super().__init__(n2, n1, n0, det, ntheta, phi, gamma, eps, ngpus)  # reorder sizes
 
 
     def __enter__(self):

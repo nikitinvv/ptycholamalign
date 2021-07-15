@@ -28,7 +28,7 @@ if __name__ == "__main__":
     initptycho = int(sys.argv[5])
 
     # reconstruction paramters
-    recover_prb = bool(sys.argv[6])
+    recover_prb = 1==int(sys.argv[6])
     piter = 32  # ptycho iterations
     titer = 32 # tomo iterations
     diter = 32  # deform iterations
@@ -39,15 +39,15 @@ if __name__ == "__main__":
     start_win = 544
 
     h5file = h5py.File(f'{data_prefix}/catalyst/extracted_scan192.h5', 'r')
-    tilt_angle = h5file.attrs.get('tilt_angle')
     lamino_angle = h5file.attrs.get('lamino_angle')*np.pi/180        
+    tilt_angle = h5file.attrs.get('tilt_angle')*np.pi/180        
     # Load probe
     prb = np.zeros([ntheta, nmodes, nprb, nprb], dtype='complex64')
     prb[:] = np.load(f'{data_prefix}datanpy/probessorted_0.npy')[:nmodes]
-    for j in range(ntheta):
-        for k in range(7):
-            prb[j,k].real = ndimage.rotate(prb[j,k].real,-tilt_angle,reshape=False,order=1)
-            prb[j,k].imag = ndimage.rotate(prb[j,k].imag,-tilt_angle,reshape=False,order=1)
+    # for j in range(ntheta):
+    #     for k in range(7):
+    #         prb[j,k].real = ndimage.rotate(prb[j,k].real,-tilt_angle,reshape=False,order=1)
+    #         prb[j,k].imag = ndimage.rotate(prb[j,k].imag,-tilt_angle,reshape=False,order=1)
 
     theta = np.zeros(ntheta, dtype='float32')
     data = np.zeros([ntheta, nscan, ndet, ndet], dtype='float32')
@@ -62,8 +62,8 @@ if __name__ == "__main__":
         shifts2 = np.load(data_prefix+'/datanpy/shifts_cm.npy')[k]
         scan0[0] -= shifts0[0] + shifts1[0] + shifts2[0]
         scan0[1] -= shifts0[1] + shifts1[1] + shifts2[1]
-        scan0[0] -= 64+64+32+16
-        scan0[1] -= 320+32+16
+        scan0[0] -= 64+64+16
+        scan0[1] -= 320+16
         # ignore position out of field of view            
         ids = np.where((scan0[0,0]<n-nprb)*(scan0[1,0]<n-nprb)*(scan0[0,0]>=0)*(scan0[1,0]>=0))[0]    
         ids = ids[sample(range(len(ids)), min(len(ids),nscan))]
@@ -104,7 +104,7 @@ if __name__ == "__main__":
                 
 
     data_prefix += 'rec_test/'+str(nscan)+'align'+str(align)+str(sptycho)+str(initptycho)+str(step_flow)+str(recover_prb)+'/'
-    with ptychotomo.SolverAdmm(nscan, theta, lamino_angle, ndet, voxelsize, energy,
+    with ptychotomo.SolverAdmm(nscan, theta, lamino_angle, tilt_angle, ndet, voxelsize, energy,
                                ntheta, n, n, nprb, ptheta, nmodes, ngpus) as aslv:
         u, psi1, psi3, flow, prb = aslv.admm_lam(
             data, psi1, psi3, flow, prb, scan,

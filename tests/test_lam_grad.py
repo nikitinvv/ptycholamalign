@@ -8,10 +8,12 @@ n2 = 256
 det = 256
 ntheta = 128
 phi = np.pi/3
-niter = 32
+gamma = np.pi/4
+niter = 512
+
 theta = np.linspace(0, 2*np.pi, ntheta, endpoint=False).astype('float32')
 f = -dxchange.read_tiff('data/delta-chip-256.tiff')
-with ptychotomo.SolverLam(n0, n1, n2, det, ntheta, phi) as slv:
+with ptychotomo.SolverLam(n0, n1, n2, det, ntheta, phi,gamma,eps=1e-1) as slv:
     data = slv.fwd_lam(f, theta)
     dxchange.write_tiff(data, 'data/r', overwrite=True)
     init = np.zeros([n0, n1, n2], dtype='float32')

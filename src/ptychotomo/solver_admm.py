@@ -15,7 +15,7 @@ import gc
 
 
 class SolverAdmm(object):
-    def __init__(self, nscan, theta, lamino_angle, ndet, voxelsize, energy, ntheta, nz, n, nprb, ptheta, nmodes, ngpus):
+    def __init__(self, nscan, theta, lamino_angle, tilt_angle, ndet, voxelsize, energy, ntheta, nz, n, nprb, ptheta, nmodes, ngpus):
 
         self.ntheta = ntheta
         self.nz = nz
@@ -29,7 +29,7 @@ class SolverAdmm(object):
         self.theta=theta
 
         eps=1e-1
-        self.tslv = SolverLam(n,n,n,n,ntheta,lamino_angle,eps,ngpus)
+        self.tslv = SolverLam(n,n,n,n,ntheta,lamino_angle,tilt_angle, eps,ngpus)
         self.pslv = SolverPtycho(
             ntheta, ptheta, nz, n, nscan, ndet, nprb, nmodes, voxelsize, energy, ngpus)
         self.dslv = SolverDeform(ntheta, nz, n, ptheta, ngpus)
