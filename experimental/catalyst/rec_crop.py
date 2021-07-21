@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     
-    nz = 640
-    n = 640
+    nz = 768
+    n = 768
     ndet = 128
     ntheta = 1
     ptheta = 1 
@@ -36,11 +36,11 @@ if __name__ == "__main__":
         
     data0 = np.load(data_prefix+'datanpy/datasorted_'+str(id_theta)+'.npy')
     scan0 = np.load(data_prefix+'datanpy/scansorted_'+str(id_theta)+'.npy')
-    shifts0 = np.load(data_prefix+'/datanpy/shifts.npy')[id_theta]
+    shifts0 = np.load(data_prefix+'/datanpy/shifts'+str(1280)+'.npy')[id_theta]
     scan0[0] -= shifts0[0] 
     scan0[1] -= shifts0[1] 
-    scan0[0] -= 64
-    scan0[1] -= 320
+    scan0[0] -= 256
+    scan0[1] -= 256
 
 
     # ignore position out of field of view            
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     print(nscan)
     plt.plot(scan[1,0],scan[0,0],'r.')
     plt.xlim([-2,1280])
-    plt.ylim([-2,768])
+    plt.ylim([-2,1280])
     plt.savefig(data_prefix+'tmp/fig'+str(id_theta)+'.png')
     # init probes
     prb = np.zeros([1, nmodes, nprb, nprb], dtype='complex64')
@@ -76,9 +76,9 @@ if __name__ == "__main__":
             data, psi, prb, scan, psi*0, -1, piter, recover_prb)   
     
     # Save result
-    dxchange.write_tiff(np.angle(psi),  data_prefix+'rec_crop/psiangle'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
-    dxchange.write_tiff(np.abs(psi),   data_prefix+'rec_crop/psiamp'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
+    dxchange.write_tiff(np.angle(psi),  data_prefix+'rec'+str(n)+'/psiangle'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
+    dxchange.write_tiff(np.abs(psi),   data_prefix+'rec'+str(n)+'/psiamp'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
     for m in range(nmodes):
-        dxchange.write_tiff(np.angle(prb[:,m]),   data_prefix+'rec_crop/prbangle/r'+str(m)+'_'+str(id_theta), overwrite=True)
-        dxchange.write_tiff(np.abs(prb[:,m]),   data_prefix+'rec_crop/prbamp/r'+str(m)+'_'+str(id_theta), overwrite=True)
+        dxchange.write_tiff(np.angle(prb[:,m]),   data_prefix+'rec'+str(n)+'/prbangle/r'+str(m)+'_'+str(id_theta), overwrite=True)
+        dxchange.write_tiff(np.abs(prb[:,m]),   data_prefix+'rec'+str(n)+'/prbamp/r'+str(m)+'_'+str(id_theta), overwrite=True)
         

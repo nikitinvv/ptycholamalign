@@ -42,8 +42,8 @@ if __name__ == "__main__":
     shifts2 = np.load(data_prefix+'/datanpy/shifts_cm.npy')[id_theta]
     scan0[0] -= shifts0[0] + shifts1[0] + shifts2[0]
     scan0[1] -= shifts0[1] + shifts1[1] + shifts2[1]
-    scan0[0] -= 64+64
-    scan0[1] -= 320
+    scan0[0] -= 320+32
+    scan0[1] -= 320+32
     #scan0 /= 2
 
 

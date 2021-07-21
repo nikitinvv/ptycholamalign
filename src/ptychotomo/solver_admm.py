@@ -28,7 +28,7 @@ class SolverAdmm(object):
         self.ngpus = ngpus
         self.theta=theta
 
-        eps=1e-1
+        eps = 1e-1
         self.tslv = SolverLam(n,n,n,n,ntheta,lamino_angle,tilt_angle, eps,ngpus)
         self.pslv = SolverPtycho(
             ntheta, ptheta, nz, n, nscan, ndet, nprb, nmodes, voxelsize, energy, ngpus)
@@ -104,7 +104,6 @@ class SolverAdmm(object):
                 psi1, prb = self.pslv.grad_ptycho_batch(
                     data, psi1, prb, scan, h1+lamd1/rho1, rho1, piter, recover_prb)
             t[0]+=toc()
-            gc.collect()
             # solve deform
             tic()
             mmin, mmax = find_min_max(np.angle(psi1-lamd1/rho1))
@@ -113,14 +112,12 @@ class SolverAdmm(object):
             psi3 = self.dslv.grad_deform_gpu_batch(
                 psi1-lamd1/rho1, psi3, flow, diter, h3+lamd3/rho3, rho3/rho1)            
             t[1]+=toc()
-            gc.collect()
-
+            
             tic()
             # solve tomo
             xi0, K, pshift = self.pslv.takexi(psi3, lamd3, rho3)
             u = self.tslv.grad_lam(xi0, K, u, self.theta, titer)
             t[2]+=toc() 
-            gc.collect()
             
             # update h1, h3
             tic()
@@ -139,7 +136,6 @@ class SolverAdmm(object):
             # update rho for a faster convergence
             rho1, rho3 = self.update_penalty(
                 psi1, h1, h10, psi3, h3, h30, rho1, rho3)
-            gc.collect()
             # decrease the step for optical flow window
             pars[2] -= step_flow
             # Lagrangians difference between two iterations

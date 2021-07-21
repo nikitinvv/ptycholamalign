@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     
-    nz = 768
+    nz = 1280
     n = 1280
     ndet = 128
     ntheta = 1

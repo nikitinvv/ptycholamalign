@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     # Load scan positions
     scan = np.zeros([2, ntheta, nscan], dtype='float32') - 1  # -1 to be skipped in computations
-    scan_all = np.load('data_lego/scan.npy')
+    scan_all = np.load('data/scan_0.npy')
     
     for k in range(ntheta):
         scan0 = scan_all[:, k]

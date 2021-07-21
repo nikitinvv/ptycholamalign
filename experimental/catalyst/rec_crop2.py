@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     
-    nz = 576
-    n = 576
+    nz = 512
+    n = 512
     ndet = 128
     ntheta = 1
     ptheta = 1 
@@ -35,15 +35,13 @@ if __name__ == "__main__":
     theta = np.zeros([1],dtype='float32')
         
     data0 = np.load(data_prefix+'datanpy/datasorted_'+str(id_theta)+'.npy')
-    #data0 = data0[:,::2,::2]+data0[:,1::2,1::2]
     scan0 = np.load(data_prefix+'datanpy/scansorted_'+str(id_theta)+'.npy')
-    shifts0 = np.load(data_prefix+'/datanpy/shifts.npy')[id_theta]
-    shifts1 = np.load(data_prefix+'/datanpy/shifts_sift.npy')[id_theta]
-    scan0[0] -= shifts0[0] + shifts1[0]
-    scan0[1] -= shifts0[1] + shifts1[1]
-    scan0[0] -= 64+64
-    scan0[1] -= 320
-    #scan0 /= 2
+    shifts0 = np.load(data_prefix+'/datanpy/shifts'+str(1280)+'.npy')[id_theta]
+    shifts1 = np.load(data_prefix+'/datanpy/shifts'+str(768)+'.npy')[id_theta]
+    scan0[0] -= shifts0[0]+shifts1[0]  
+    scan0[1] -= shifts0[1]+shifts1[1]  
+    scan0[0] -= 256+128
+    scan0[1] -= 256+128
 
 
     # ignore position out of field of view            
@@ -53,18 +51,17 @@ if __name__ == "__main__":
     print(f'{len(ids)}')
     ids = ids[sample(range(len(ids)), min(len(ids),nscan))]
     
+    
     scan[:,:,:min(len(ids),nscan)] = scan0[:, :, ids]
     data[0,:min(len(ids),nscan)] = data0[ids]    
     print(nscan)
     plt.plot(scan[1,0],scan[0,0],'r.')
     plt.xlim([-2,1280])
-    plt.ylim([-2,768])
+    plt.ylim([-2,1280])
     plt.savefig(data_prefix+'tmp/fig'+str(id_theta)+'.png')
     # init probes
     prb = np.zeros([1, nmodes, nprb, nprb], dtype='complex64')
-    prb0 = np.load(f'{data_prefix}datanpy/probessorted_{id_theta}.npy')[:nmodes]#,::2,::2]
-    #prb0 = prb0[:,::2,::2]+prb0[:,1::2,1::2]
-    prb[:]=prb0
+    prb[:] = np.load(f'{data_prefix}datanpy/probessorted_{id_theta}.npy')[:nmodes]
     
     # Initial guess
     psi = np.ones([1, nz, n], dtype='complex64')    
@@ -80,9 +77,9 @@ if __name__ == "__main__":
             data, psi, prb, scan, psi*0, -1, piter, recover_prb)   
     
     # Save result
-    dxchange.write_tiff(np.angle(psi),  data_prefix+'rec_crop2/psiangle'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
-    dxchange.write_tiff(np.abs(psi),   data_prefix+'rec_crop2/psiamp'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
+    dxchange.write_tiff(np.angle(psi),  data_prefix+'rec'+str(n)+'/psiangle'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
+    dxchange.write_tiff(np.abs(psi),   data_prefix+'rec'+str(n)+'/psiamp'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
     for m in range(nmodes):
-        dxchange.write_tiff(np.angle(prb[:,m]),   data_prefix+'rec_crop2/prbangle/r'+str(m)+'_'+str(id_theta), overwrite=True)
-        dxchange.write_tiff(np.abs(prb[:,m]),   data_prefix+'rec_crop2/prbamp/r'+str(m)+'_'+str(id_theta), overwrite=True)
+        dxchange.write_tiff(np.angle(prb[:,m]),   data_prefix+'rec'+str(n)+'/prbangle/r'+str(m)+'_'+str(id_theta), overwrite=True)
+        dxchange.write_tiff(np.abs(prb[:,m]),   data_prefix+'rec'+str(n)+'/prbamp/r'+str(m)+'_'+str(id_theta), overwrite=True)
         

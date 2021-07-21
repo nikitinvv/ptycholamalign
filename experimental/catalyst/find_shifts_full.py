@@ -11,7 +11,7 @@ if __name__ == "__main__":
     ntheta = int(sys.argv[3])
     nmodes = int(sys.argv[4])
     
-    nz = 768
+    nz = 1280
     n = 1280
     ndet = 128
     #tilt_angle = -72.035
