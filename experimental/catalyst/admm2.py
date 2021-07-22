@@ -90,20 +90,21 @@ if __name__ == "__main__":
     # init with correct values
     for k in range(ntheta):
         if(initptycho==1):
-            psiangle = dxchange.read_tiff(data_prefix+'rec'+str(n)+'/psiangle'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,::2,::2]
-            psiamp = dxchange.read_tiff(data_prefix+'rec'+str(n)+'/psiamp'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,::2,::2]
+            print(data_prefix+'rec512/psiangle'+str(nmodes)+'800/r'+str(k)+'.tiff')
+            psiangle = dxchange.read_tiff(data_prefix+'rec512/psiangle'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,::2,::2]
+            psiamp = dxchange.read_tiff(data_prefix+'rec512/psiamp'+str(nmodes)+'800/r'+str(k)+'.tiff')[:,::2,::2]
             psi1[k] = psiamp*np.exp(1j*psiangle) 
             psi3[k] = psiamp*np.exp(1j*psiangle) 
             h1[k] = psiamp*np.exp(1j*psiangle) 
             h3[k] = psiamp*np.exp(1j*psiangle) 
         if(recover_prb==False):
             for m in range(nmodes):
-                prbangle = dxchange.read_tiff(data_prefix+'rec'+str(n)+'/prbangle/r'+str(m)+'_'+str(k)+'.tiff')
-                prbamp = dxchange.read_tiff(data_prefix+'rec'+str(n)+'/prbamp/r'+str(m)+'_'+str(k)+'.tiff')
+                prbangle = dxchange.read_tiff(data_prefix+'rec512/prbangle/r'+str(m)+'_'+str(k)+'.tiff')
+                prbamp = dxchange.read_tiff(data_prefix+'rec512/prbamp/r'+str(m)+'_'+str(k)+'.tiff')
                 prb[k,m] = prbamp*np.exp(1j*prbangle) 
                 
 
-    data_prefix += 'rec_test/'+str(nscan)+'align'+str(align)+str(sptycho)+str(initptycho)+str(step_flow)+str(recover_prb)+'/'
+    data_prefix += 'rec_test'+str(n)+'/'+str(nscan)+'align'+str(align)+str(sptycho)+str(initptycho)+str(step_flow)+str(recover_prb)+'/'
     with ptychotomo.SolverAdmm(nscan, theta, lamino_angle, tilt_angle, ndet, voxelsize, energy,
                                ntheta, n, n, nprb, ptheta, nmodes, ngpus) as aslv:
         u, psi1, psi3, flow, prb = aslv.admm_lam(

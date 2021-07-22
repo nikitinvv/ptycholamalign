@@ -69,9 +69,9 @@ if __name__ == "__main__":
             data, psi, prb, scan, psi*0, -1, piter, recover_prb)   
     
     # Save result
-    dxchange.write_tiff(np.angle(psi),  data_prefix+'rec_full/psiangle'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
-    dxchange.write_tiff(np.abs(psi),   data_prefix+'rec_full/psiamp'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
+    dxchange.write_tiff(np.angle(psi),  data_prefix+'rec'+str(n)+'/psiangle'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
+    dxchange.write_tiff(np.abs(psi),   data_prefix+'rec'+str(n)+'/psiamp'+str(nmodes)+str(nscan)+'/r'+str(id_theta), overwrite=True)
     for m in range(nmodes):
-        dxchange.write_tiff(np.angle(prb[:,m]),   data_prefix+'rec_full/prbangle/r'+str(id_theta), overwrite=True)
-        dxchange.write_tiff(np.abs(prb[:,m]),   data_prefix+'rec_full/prbamp/r'+str(id_theta), overwrite=True)
+        dxchange.write_tiff(np.angle(prb[:,m]),   data_prefix+'rec'+str(n)+'/prbangle/r'+str(id_theta), overwrite=True)
+        dxchange.write_tiff(np.abs(prb[:,m]),   data_prefix+'rec'+str(n)+'/prbamp/r'+str(id_theta), overwrite=True)
         
